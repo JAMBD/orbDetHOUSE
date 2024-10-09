@@ -5,6 +5,7 @@
 #include "satRefSys.hpp"
 #include "jplEph.hpp"
 #include <string>
+#include <vector>
 using std::string;
 
 // ToDo: fix this, this is already defined in the config header file
@@ -23,16 +24,10 @@ struct EGMCoef
 	MatrixXd cmn = MatrixXd::Zero(GRAVITY_DEG_M + 1, GRAVITY_DEG_N + 1);
 };
 
-MatrixXd Legendre(
+const std::pair<MatrixXd,MatrixXd> Legendre(
 	int n,
 	int m,
 	double phi);
-
-MatrixXd LegendreD(
-	int m,		  ///< Maximum degree
-	int n,		  ///< Maximum order
-	MatrixXd pnm, ///< Normalised Legendre polinomial matrix
-	double phi);  ///< Geocentric latitude in radian
 
 struct EarthGravMdlOpt
 {

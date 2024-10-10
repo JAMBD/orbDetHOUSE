@@ -12,20 +12,22 @@
 
 Vector3d CalcPolarAngles(Vector3d mVec)
 {
+	const double *mVec_data = mVec.data();
+	const double tmp_a = mVec_data[0] * mVec_data[0] +  mVec_data[1] * mVec_data[1];
 	/* Norm of vector
 	 */
-	double mR = mVec.norm();
+	const double mR = sqrt(tmp_a + mVec_data[2] * mVec_data[2]);
 
 	/* Azimuth of vector
 	 */
 	double mPhi;
-	if ((mVec(0) == 0) && (mVec(1) == 0))
+	if ((mVec_data[0] == 0) && (mVec_data[1] == 0))
 	{
 		mPhi = 0;
 	}
 	else
 	{
-		mPhi = atan2(mVec(1), mVec(0));
+		mPhi = atan2(mVec_data[1], mVec_data[0]);
 	}
 
 	if (mPhi < 0)
@@ -33,24 +35,23 @@ Vector3d CalcPolarAngles(Vector3d mVec)
 		mPhi += 2 * PI;
 	}
 
-	double rho = sqrt(mVec(0) * mVec(0) + mVec(1) * mVec(1)); // Length of projection in x - y - plane:
+	const double rho = sqrt(tmp_a); // Length of projection in x - y - plane:
 
 	/* Altitude of vector
 	 */
 	double mTheta;
-	if ((mVec(2) == 0) && (rho == 0))
+	if ((mVec_data[2] == 0) && (rho == 0))
 	{
 		mTheta = 0;
 	}
 	else
 	{
-		mTheta = atan2(mVec(2), rho);
+		mTheta = atan2(mVec_data[2], rho);
 	}
 
-	Vector3d vecRAE = Vector3d::Zero();
-	vecRAE(0) = mR;
-	vecRAE(1) = mPhi;
-	vecRAE(2) = mTheta;
+	Vector3d vecRAE;
+	
+	vecRAE << mR, mPhi, mTheta;
 
 	return vecRAE;
 }
@@ -66,27 +67,34 @@ const std::pair<MatrixXd, MatrixXd> Legendre(
 	const double cos_phi = cos(phi);
 	const double sin_phi = sin(phi);
 
-	static std::vector<double> sqrt_table_a;
-	static std::vector<double> sqrt_table_b;
-	static std::vector<double> sqrt_table_c;
-	static std::vector<double> sqrt_table_d;
+	static double* sqrt_table_a = NULL;
+	static double* sqrt_table_b = NULL;
+	static double* sqrt_table_c = NULL;
+	static double* sqrt_table_d = NULL;
 	static int cache_m = 0;
 	if (cache_m < m)
 	{
 		cache_m = m;
-		sqrt_table_a.resize(m);
+		if (sqrt_table_a != NULL) {
+			free(sqrt_table_a);
+			free(sqrt_table_b);
+			free(sqrt_table_c);
+			free(sqrt_table_d);
+		}
+		sqrt_table_a = (double*) malloc(sizeof(double) * m);
+
 		sqrt_table_a[0] = sqrt(3);
 		for (int i=1; i < m; i++)
 		{
 			sqrt_table_a[i] = sqrt(1.0 + (1.0 / (2.0 * (i + 1.0))));
 		}
-		sqrt_table_b.resize(m);
+		sqrt_table_b = (double*) malloc(sizeof(double) * m);
 		for (int i=0; i < m; i++)
 		{
 			sqrt_table_b[i] = sqrt(2.0 * i + 3.0);
 		}
-		sqrt_table_c.resize((m+1) * (n+1));
-		sqrt_table_d.resize((m+1) * (n+1));
+		sqrt_table_c = (double*) malloc(sizeof(double) * (m+1) * (n+1));
+		sqrt_table_d = (double*) malloc(sizeof(double) * (m+1) * (n+1));
 		
 		for (int j=0; j<=n; j++)
 		{
@@ -99,9 +107,9 @@ const std::pair<MatrixXd, MatrixXd> Legendre(
 		}
 	}
 
-	MatrixXd pnm = MatrixXd::Zero(m + 1, n + 1);
+	MatrixXd pnm(m + 1, n + 1);
 	// Copy faster than a Zero initializer;
-	MatrixXd dpnm = pnm;
+	MatrixXd dpnm(m + 1, n + 1);
 	pnm.coeffRef(0, 0) = 1;
 	dpnm.coeffRef(0, 0) = 0.0;
 	double prev_d = 0.0;
@@ -129,6 +137,8 @@ const std::pair<MatrixXd, MatrixXd> Legendre(
 
 	/* horizontal second step coefficients
 	 */
+	double* pnm_data = pnm.data();
+	double* dpnm_data = dpnm.data();
 	for (int j=0; j<=n; j++)
 	{
 		const int offset = j * (cache_m + 1);
@@ -138,6 +148,7 @@ const std::pair<MatrixXd, MatrixXd> Legendre(
 		double past_d_1 = dpnm.coeff(j+1,j);
 		double past_d_2 = dpnm.coeff(j,j);
 
+		const int mat_idx_offset = j * (m+1);
 		for (int i = j+2; i <= m; i++)
 		{
 			const double tmp_a = sqrt_table_c[offset + i];
@@ -146,12 +157,12 @@ const std::pair<MatrixXd, MatrixXd> Legendre(
 			const double sqrt_sin_phi = tmp_c * sin_phi;
 			const double next_value = tmp_a * (sqrt_sin_phi * past_1 - tmp_b* past_2);
 			const double next_value_d = tmp_a * ((sqrt_sin_phi * past_d_1) + tmp_c * cos_phi * past_1 - tmp_b * past_d_2);
-
-			pnm.coeffRef(i, j) = next_value; 
+			
+			pnm_data[mat_idx_offset + i] = next_value; 
 			past_2 = past_1;
 			past_1 = next_value;
 
-			dpnm.coeffRef(i, j) = next_value_d;
+			dpnm_data[mat_idx_offset + i] = next_value_d;
 			past_d_2 = past_d_1;
 			past_d_1 = next_value_d;
 		}
@@ -488,8 +499,6 @@ Vector3d GravityModel::centralBodyGravityAcc(
 	bool bVarEq)			 ///< bVarEq = 1 if for the variational equation
 {
 	double q1 = 0, q2 = 0, q3 = 0;
-	double b1, b2, b3;
-	int nd;
 	int mMax = 0;
 	int nMax = 0;
 	EGMCoef egmCoef = mEGMCoef;
@@ -555,31 +564,39 @@ Vector3d GravityModel::centralBodyGravityAcc(
 	const double tmp_b = (RE_WGS84 / rSat_bf.norm());
 	const double tmp_c = (-GM_Earth / rSat_bf.squaredNorm());
 
-	std::vector<double> sin_table(mMax + 1);
-	std::vector<double> cos_table(mMax + 1);
+	double* sin_table = (double*)malloc(sizeof(double )* mMax + 1);
+	double* cos_table = (double*)malloc(sizeof(double )* mMax + 1);
 	for (int n = 0; n <= mMax; n++) {
 		sin_table[n] = sin(n * rSat_longc);
 		cos_table[n] = cos(n * rSat_longc);
 	}
+	double tmp_d = 1;
+	const double *cmn_data = egmCoef.cmn.data();
+	const double *smn_data = egmCoef.smn.data();
+	const double *pnm_data = pnm.data();
+	const double *dpnm_data = dpnm.data();
 	for (int m = 0; m <= nMax; m++)
 	{
-
 		for (int n = 0; n <= m; n++)
 		{
-			const double tmp_cmn = egmCoef.cmn.coeff(m, n);
-			const double tmp_smn = egmCoef.smn.coeff(m, n);
+			const int idx = m + n * (mMax + 1);
+			const double tmp_cmn = cmn_data[idx];
+			const double tmp_smn = smn_data[idx];
 			const double tmp_sin = sin_table[n];
 			const double tmp_cos = cos_table[n];
-			const double tmp_pnm = pnm.coeff(m,n);
-			q1 += tmp_pnm * (tmp_cmn * tmp_cos + tmp_smn * tmp_sin);
-			q2 += dpnm.coeff(m, n) * (tmp_cmn * tmp_cos + tmp_smn * tmp_sin);
+			const double tmp_pnm = pnm_data[idx];
+			const double tmp_cmn_cos = tmp_cmn * tmp_cos;
+			const double tmp_smn_sin = tmp_smn * tmp_sin;
+			const double tmp_sum = (tmp_cmn_cos + tmp_smn_sin);
+			q1 += tmp_pnm * tmp_sum;
+			q2 += dpnm_data[idx] * tmp_sum;
 			q3 += n * tmp_pnm * (tmp_smn * tmp_cos - tmp_cmn * tmp_sin);
 		}
 
-		const double tmp_d = pow(tmp_b,m);
 		const double b1 = tmp_c * tmp_d * (m + 1);
 		const double b2 = tmp_a * tmp_d;
 		const double b3 = tmp_a * tmp_d;
+		tmp_d *= tmp_b;
 		dUdr += q1 * b1;
 		dUdlatgc += q2 * b2;
 		dUdlongc += q3 * b3;
@@ -588,6 +605,8 @@ Vector3d GravityModel::centralBodyGravityAcc(
 		q2 = 0;
 		q1 = 0;
 	}
+	free(sin_table);
+	free(cos_table);
 
 	double r2xy = SQR(rSat_bf.x()) + SQR(rSat_bf.y()); // Body-fixed acceleration
 

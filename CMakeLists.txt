@@ -15,8 +15,8 @@ execute_process(COMMAND python3 -m pybind11 --includes OUTPUT_VARIABLE PYBIND11_
 string(REPLACE " " ";" PYBIND11_INCLUDE_DIRS_LIST ${PYBIND11_INCLUDE_DIRS})
 
 # Compiler flags
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -stdlib=libc++ -isystem ${SDKROOT}/usr/include/c++/v1 -isysroot ${SDKROOT} -nostdinc++ -Wall -pedantic -g -Wno-error -v")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isysroot ${SDKROOT} -Wall -pedantic -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++20 -stdlib=libc++ -isystem ${SDKROOT}/usr/include/c++/v1 -isysroot ${SDKROOT} -nostdinc++ -Wall -pedantic -g -Wno-error -v -O3 -ffast-math")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -isysroot ${SDKROOT} -Wall -pedantic -g -O3")
 
 # Include directories
 include_directories(
@@ -50,7 +50,7 @@ find_package(yaml-cpp REQUIRED)
 
 # Create shared library
 add_library(orbit_propagator_wrapper SHARED orbmdl/orbit_propagator_wrapper_py.cpp orbmdl/orbit_propagator_wrapper.cpp)
-target_link_libraries(orbit_propagator_wrapper orbmdl nrlmsise00 filter yaml-cpp::yaml-cpp python3.10)
+target_link_libraries(orbit_propagator_wrapper orbmdl nrlmsise00 filter yaml-cpp python3.10)
 
 # Set output directories
 set_target_properties(orbmdl PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

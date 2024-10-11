@@ -107,9 +107,9 @@ const std::pair<MatrixXd, MatrixXd> Legendre(
 		}
 	}
 
-	MatrixXd pnm(m + 1, n + 1);
+	MatrixXd pnm = MatrixXd::Zero(m + 1, n + 1);
 	// Copy faster than a Zero initializer;
-	MatrixXd dpnm(m + 1, n + 1);
+	MatrixXd dpnm = pnm;
 	pnm.coeffRef(0, 0) = 1;
 	dpnm.coeffRef(0, 0) = 0.0;
 	double prev_d = 0.0;
